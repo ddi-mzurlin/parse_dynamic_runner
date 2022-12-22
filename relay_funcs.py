@@ -2,113 +2,89 @@ import json
 import sys
 import os
 
-import relay_funcs as relay
+OFFSET_CYCLE_READ = 2 # offset zero base index and refer to next cycle
+READS_TO_CONSIDER = 40 # Help speeds things up by only looking at this many reads
 
-max_gate_closer = 0
+def find_gate_close_max_read_back(case):
+  analytics = case["analytics"]
+  max = 0
 
-def process_files(files, funcs = None):
-  global max_gate_closer
-
-  show_at_fail_count = 1
-  max_suite_fail_count = 0
-  suite_fails = 0
-  previous_fail_count = 0
-
-
-  for file in files:
-    with open(file) as log_file:
-
-      for line in log_file:
-        test = line.find("[error]")
-        if test != -1:
-          print("*Error: ", line)
+  i = 0
+  # Only Checking from off to closed. Looking for last closed position
+  for entry in analytics:
+    write_val = entry["write"] # value written for 4 channels
+    
+    if write_val > 0:
+      channels = [write_val & 1, write_val & 2, write_val & 4, write_val & 8] # help find which channel was written to
+      for index, channel in enumerate(channels):
+        if channel > 0: # this channel was written to
           
-        arr = line.split("[info]")
-        start = arr[0]
+          channel_reads = entry["read_back"]["reads"]
+          channel_under_test_reads = channel_reads[index] 
+          for i in range(READS_TO_CONSIDER):
+            if channel_under_test_reads[i] == 0: #Look for last time channel relay was open to consider bounce
+              max = i + OFFSET_CYCLE_READ # offset 0 base index and then next cycle
+              # print(f"write_val {write_val} index: {index} max: {max}")
+          max += 1 # find last time gate is open next one is closed
 
-        try:
-          my_json = json.loads(arr[1])    
+
+  print(f"Max Gate Closer: ", max)
+  return max
+
+
+
+def find_gate_close_max(case):
+  analytics = case["analytics"]
+  max = 0
+
+  # Only Checking from off to closed. Looking for last closed position
+  for entry in analytics:
+    write_val = entry["write"] # value written for 4 channels
+    
+    if write_val > 0:
+      channels = [write_val & 1, write_val & 2, write_val & 4, write_val & 8] # help find which channel was written to
+      for index, channel in enumerate(channels):
+        if channel > 0: # this channel was written to
+          channel_reads = entry["din"]["reads"][1::2]
+          channel_under_test_reads = channel_reads[index] 
+
+          for i in range(READS_TO_CONSIDER):
+            if channel_under_test_reads[i] == 0: #Look for last time channel relay was open to consider bounce
+              max = i + OFFSET_CYCLE_READ
+          max += 1 # find last time gate is open next one is closed
+
+
+  print(f"Max Gate Closer: ", max)
+  return max
+
+def find_unsafe_wiring_fault(case):
+  print("***START UNSAFE")
+  analytics = case["analytics"]
+
+  
+  # Only Checking from off to closed. Looking for last closed position
+  for entry in analytics:
+    
+    write_val_str = entry["write"] # value written for 4 channels
+    write_val = int(write_val_str,16)
+    # print(f"write value str: {write_val_str} actual: {write_val}")
+    # return 0
+    # pass
+    read_backs = entry["read_back"]["reads"]
           
-          suite_fails = my_json["test-suite-fail-count"]
+    which_channels_are_high_with_write_val = []
+    for channel_index in range(len(read_backs)):
+      which_channels_are_high_with_write_val.append((1 if (write_val & (1 << channel_index)) else 0))
 
-          if True:
-          # if suite_fails  > 0 and suite_fails != previous_fail_count:
-            previous_fail_count = suite_fails
-            cpu_temp = my_json["diagnostics"]["cm_cpu_temp"]
-            print(start, "CPU TEMP: ", cpu_temp , "Fail count: ", suite_fails)
+    # print(which_channels_are_high_with_write_val)
 
-            for entry in my_json["test_suites"]:
-              for case in entry["test_cases"]:
-                slot = case["slot-id"]
-                                
-                for func in funcs:
-                  if func == relay.find_gate_close_max :
-                    temp = func(case)
-                    if temp > max_gate_closer:
-                      max_gate_closer = temp
-                  elif func == relay.find_unsafe_wiring_fault:
-                    if slot == 6:
-                      func(case)
-                  elif func == relay.find_gate_close_max_read_back:
-                    temp = func(case)
-                    if temp > max_gate_closer:
-                      max_gate_closer = temp
-                    print(cpu_temp, temp)
-                  
-              
-          
-          if suite_fails > max_suite_fail_count:
-            max_suite_fail_count = suite_fails
-            
-        except Exception as ex:
-          print(f"error reading line: Exception: {ex}")
-    print("Global Max Gate Closer time: ", max_gate_closer)
-    print("Total Test-Suite fails: ", max_suite_fail_count)
+    for channel_index, rb_channels_arr in enumerate(read_backs):
+      val_for_channel = which_channels_are_high_with_write_val[channel_index]
+      for rb_index, rb in enumerate(rb_channels_arr):
+        if rb_index > 3 and val_for_channel != rb:
+          print(f"fail on channel: {channel_index} with read: {rb_index}    expected: {val_for_channel}   got: {rb}")
+
     
 
 
 
-if __name__ == "__main__":
-  if len(sys.argv) <= 1:
-    print("Require file name. Terminating")
-    quit()
-    
-  errors = {}
-  with open("errors.json") as error_open:
-    errors = json.load(error_open)
-
-
-  file = sys.argv[1]
-  key = ""
-  if len(sys.argv) == 3:
-    key = sys.argv[2]
-
-
-
-  files = [] 
-
-  if os.path.isdir(file):
-    if file[-1] != '/':
-      file += "/"
-    for i in os.listdir(file): 
-      newDir = file + i + "/"
-      newDir = newDir.replace('"', '\"')
-      if os.path.isdir(newDir):
-        for j in os.listdir(newDir): 
-          newFile = newDir + j
-          files.append(newDir + j)
-        
-      else:
-        files.append(file + i)
-
-  else:
-    files.append(file)
-  print(f"files: {files}")
-
-  # funcs = []
-  # funcs = [relay.find_gate_close_max]
-  # funcs = [relay.find_unsafe_wiring_fault]
-  funcs = [relay.find_gate_close_max_read_back]
-
-  # process_files(files)
-  process_files(files, funcs)
