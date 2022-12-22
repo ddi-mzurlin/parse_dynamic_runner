@@ -28,7 +28,7 @@ def find_gate_close_max_read_back(case):
           max += 1 # find last time gate is open next one is closed
 
 
-  print(f"Max Gate Closer: ", max)
+  # print(f"Max Gate Closer: ", max)
   return max
 
 

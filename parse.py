@@ -8,12 +8,13 @@ max_gate_closer = 0
 
 def process_files(files, funcs = None):
   global max_gate_closer
+  global temp_max_on_read_back
 
   show_at_fail_count = 1
   max_suite_fail_count = 0
   suite_fails = 0
   previous_fail_count = 0
-
+  output = open("temp_and_max_gate_closer", 'w')
 
   for file in files:
     with open(file) as log_file:
@@ -24,7 +25,7 @@ def process_files(files, funcs = None):
           print("*Error: ", line)
           
         arr = line.split("[info]")
-        start = arr[0]
+        log_entry = arr[0]
 
         try:
           my_json = json.loads(arr[1])    
@@ -35,7 +36,7 @@ def process_files(files, funcs = None):
           # if suite_fails  > 0 and suite_fails != previous_fail_count:
             previous_fail_count = suite_fails
             cpu_temp = my_json["diagnostics"]["cm_cpu_temp"]
-            print(start, "CPU TEMP: ", cpu_temp , "Fail count: ", suite_fails)
+            print(log_entry, "CPU TEMP: ", cpu_temp , "Fail count: ", suite_fails)
 
             for entry in my_json["test_suites"]:
               for case in entry["test_cases"]:
@@ -53,15 +54,19 @@ def process_files(files, funcs = None):
                     temp = func(case)
                     if temp > max_gate_closer:
                       max_gate_closer = temp
-                    print(cpu_temp, temp)
+                    output.write(f"{cpu_temp} {temp}\n")
+
                   
-              
+    
           
           if suite_fails > max_suite_fail_count:
             max_suite_fail_count = suite_fails
             
         except Exception as ex:
+      
           print(f"error reading line: Exception: {ex}")
+      output.close()                      
+
     print("Global Max Gate Closer time: ", max_gate_closer)
     print("Total Test-Suite fails: ", max_suite_fail_count)
     
