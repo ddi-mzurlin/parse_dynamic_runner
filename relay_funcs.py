@@ -24,12 +24,33 @@ def find_gate_close_max_read_back(case):
           for i in range(READS_TO_CONSIDER):
             if channel_under_test_reads[i] == 0: #Look for last time channel relay was open to consider bounce
               max = i + OFFSET_CYCLE_READ # offset 0 base index and then next cycle
-              # print(f"write_val {write_val} index: {index} max: {max}")
-          max += 1 # find last time gate is open next one is closed
-
 
   # print(f"Max Gate Closer: ", max)
   return max
+
+
+
+def get_test_suite_from_files(file_names, restriction = None):
+  for file in file_names:
+    with open(file) as log_file:
+
+      for json_entry in log_file:
+        is_error = json_entry.find("[error]")
+        if is_error != -1:
+          print("*Error: ", json_entry)
+          
+        arr = json_entry.split("[info]")
+        log_entry = arr[0]
+        my_json = None
+        try:
+          my_json = json.loads(arr[1])    
+          yield my_json
+        except Exception as ex:
+      
+          print(f"error reading line: Exception: {ex}")
+
+  return -1
+
 
 
 
