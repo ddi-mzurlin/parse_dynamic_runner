@@ -68,6 +68,10 @@ def find_gate_close_max(case):
   # Only Checking from off to closed. Looking for last closed position
   for entry in analytics:
     write_val = entry["write"] # value written for 4 channels
+
+    if type(write_val) == str:
+      write_val = int(write_val, 16)
+      
     
     if write_val > 0:
       channels = [write_val & 1, write_val & 2, write_val & 4, write_val & 8] # help find which channel was written to
@@ -82,7 +86,7 @@ def find_gate_close_max(case):
           max += 1 # find last time gate is open next one is closed
 
 
-  print(f"Max Gate Closer: ", max)
+  # print(f"Max Gate Closer: ", max)
   return max
 
 def find_unsafe_wiring_fault(case):

@@ -4,15 +4,14 @@ import os
 
 import relay_funcs as relay
 import matplotlib.pyplot as plt 
+import numpy as np
 
 
 
 def test_suites(files, conditions = None, funcs = None):
   max_gate_closer = 0
   temp_map = {}
-  temperature = []
-  gate_close = []
-
+  processed_count = 0
 
   for my_json in relay.get_test_suite_from_files(files):
     #do something with conditions
@@ -25,10 +24,11 @@ def test_suites(files, conditions = None, funcs = None):
     if skip_file:
       continue
 
+    processed_count += 1
 
     suite_fails = my_json["test-suite-fail-count"]    
     cpu_temp = my_json["diagnostics"]["cm_cpu_temp"]
-    print("CPU TEMP: ", cpu_temp , "Fail count: ", suite_fails)
+    # print("CPU TEMP: ", cpu_temp , "Fail count: ", suite_fails)
 
     #functions
     for entry in my_json["test_suites"]:
@@ -39,6 +39,12 @@ def test_suites(files, conditions = None, funcs = None):
             func_return = func(case)
             if func_return > max_gate_closer:
               max_gate_closer = func_return
+              
+            if cpu_temp in temp_map:
+              temp_map[cpu_temp].append(func_return)
+            else:
+              temp_map[cpu_temp] = [func_return]
+          
           elif func == relay.find_unsafe_wiring_fault:
             if slot == 6:
               func(case)
@@ -52,24 +58,26 @@ def test_suites(files, conditions = None, funcs = None):
             else:
               temp_map[cpu_temp] = [func_return]
 
-        
+  print(f"Total Processed: {processed_count}")
+  print(f"Max Gate Closer: {max_gate_closer}")
 
-  if relay.find_gate_close_max_read_back in funcs:
+  if relay.find_gate_close_max_read_back in funcs or relay.find_gate_close_max in funcs:
     x = []
     y = []
     for key in temp_map:
       x.append(key)
       y.append(sum(temp_map[key])/len(temp_map[key]))
 
-    plt.scatter(x,y)
-    plt.xlabel("Temp C")
-    plt.ylabel("Average gate closer in miliseconds")
-    plt.show()
+    slope, intercept = np.polyfit(x,y,deg=1)
 
-  # print("Global Max Gate Closer time: ", max_gate_closer)
-  # print("Total Test-Suite fails: ", max_suite_fail_count)
+    fig, ax = plt.subplots(figsize=(9,9))
+    ax.scatter(x,y)
+    line_thing = np.linspace(min(x),max(x), len(x))
+    ax.plot(line_thing,  intercept + slope * line_thing,color='r')
     
-
+    fig.legend(["Points",f"Slope: {slope:.2f}"])
+    ax.set_title("Average max_gate_closer_time of read_back per temperature")
+    plt.show()
 
 
 
@@ -108,11 +116,10 @@ if __name__ == "__main__":
 
   else:
     files.append(file)
-  # print(f"files: {files}")
 
-  # funcs = []
-  # funcs = [relay.find_gate_close_max]
+  
   # funcs = [relay.find_unsafe_wiring_fault]
+  # funcs = [relay.find_gate_close_max]
   funcs = [relay.find_gate_close_max_read_back]
 
   # process_files(files)
@@ -122,7 +129,7 @@ if __name__ == "__main__":
 
 
 
-
+# ORIGINAL
 # def process_files(files, funcs = None):
 #   global max_gate_closer
 #   global temp_max_on_read_back
