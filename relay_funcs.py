@@ -28,9 +28,12 @@ def find_gate_close_max_read_back(case):
   # print(f"Max Gate Closer: ", max)
   return max
 
+def zero_fail(my_json):
+    suite_fails = my_json["test-suite-fail-count"]
+    return suite_fails == 0
 
 
-def get_test_suite_from_files(file_names, restriction = None):
+def get_test_suite_from_files(file_names):
   for file in file_names:
     with open(file) as log_file:
 
@@ -49,7 +52,7 @@ def get_test_suite_from_files(file_names, restriction = None):
       
           print(f"error reading line: Exception: {ex}")
 
-  return -1
+  return None
 
 
 
