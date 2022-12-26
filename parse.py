@@ -46,8 +46,7 @@ def test_suites(files, conditions = None, funcs = None):
             func_return = func(case)
             if func_return > max_gate_closer:
               max_gate_closer = func_return
-            temperature.append(cpu_temp)
-            gate_close.append(func_return)
+              
             if cpu_temp in temp_map:
               temp_map[cpu_temp].append(func_return)
             else:
