@@ -14,6 +14,8 @@ def test_suites(files, conditions = None, funcs = None):
   processed_count = 0
 
   for my_json in relay.get_test_suite_from_files(files):
+    # print(my_json)
+    # continue
     #do something with conditions
     skip_file = False
 
@@ -57,26 +59,63 @@ def test_suites(files, conditions = None, funcs = None):
               temp_map[cpu_temp].append(func_return)
             else:
               temp_map[cpu_temp] = [func_return]
+          elif func == relay.find_gate_open_read_back or func == relay.find_gate_open:
+            func_return = func(case)
+            if func_return > max_gate_closer:
+              max_gate_closer = func_return
+              
+            if cpu_temp in temp_map:
+              temp_map[cpu_temp].append(func_return)
+            else:
+              temp_map[cpu_temp] = [func_return]
+          elif func == relay.shaun_csv:
+            func(case,cpu_temp)
+          
+          
 
   print(f"Total Processed: {processed_count}")
   print(f"Max Gate Closer: {max_gate_closer}")
 
-  if relay.find_gate_close_max_read_back in funcs or relay.find_gate_close_max in funcs:
+  if relay.find_gate_close_max_read_back in funcs or relay.find_gate_close_max in funcs or relay.find_gate_open_read_back in funcs or relay.find_gate_open in funcs:
+  # if False:
     x = []
-    y = []
+    average = []
+    mins = []
+    maxes = []
+    variance = []
     for key in temp_map:
       x.append(key)
-      y.append(sum(temp_map[key])/len(temp_map[key]))
+      average.append(sum(temp_map[key])/len(temp_map[key]))
+      mins.append(min(temp_map[key]))
+      maxes.append(max(temp_map[key]))
 
-    slope, intercept = np.polyfit(x,y,deg=1)
+      var = np.var(temp_map[key])
+      variance.append(var)
 
-    fig, ax = plt.subplots(figsize=(9,9))
-    ax.scatter(x,y)
+    slope, intercept = np.polyfit(x,average,deg=1)
+
+    x = np.array(x)
+    average= np.array(average)
+    mins = np.array(mins)
+    variance = np.array(variance)
+    x = np.array(x)
+    plt.errorbar(x, average, variance, fmt='ok', lw=3)
+    plt.errorbar(x, average, [average - mins, maxes - average],
+             fmt='.k', ecolor='gray', lw=1)
+    # plt.ylim(10,30)
+    print("Early Exit from Plotting")
+    return
+    plt.show()
+
+    return
+    fig, ax = plt.subplots()
+    ax.scatter(x,average)
+    ax.bar(x,variance)
     line_thing = np.linspace(min(x),max(x), len(x))
     ax.plot(line_thing,  intercept + slope * line_thing,color='r')
     
     fig.legend(["Points",f"Slope: {slope:.2f}"])
-    ax.set_title("Average max_gate_closer_time of read_back per temperature")
+    ax.set_title("Average Max_gate temperature")
     plt.show()
 
 
@@ -120,85 +159,17 @@ if __name__ == "__main__":
   
   # funcs = [relay.find_unsafe_wiring_fault]
   # funcs = [relay.find_gate_close_max]
-  funcs = [relay.find_gate_close_max_read_back]
+  # funcs = [relay.find_gate_close_max_read_back]
+  # funcs = [relay.find_gate_open_read_back]
+  funcs = [relay.shaun_csv]
 
+  # print(files)
+  # exit()
   # process_files(files)
+  # test_suites(files, [relay.check_all], funcs)
+  if funcs[0] == relay.shaun_csv:
+    os.system("rm din_open_close.csv")
+    os.system("rm read_back_open_close.csv")
   test_suites(files, [relay.zero_fail], funcs)
 
-
-
-
-
-# ORIGINAL
-# def process_files(files, funcs = None):
-#   global max_gate_closer
-#   global temp_max_on_read_back
-
-#   show_at_fail_count = 1
-#   max_suite_fail_count = 0
-#   suite_fails = 0
-#   previous_fail_count = 0
-#   # output = open("temp_and_max_gate_closer", 'w')
-
-#   temp_map = {}
-#   temperature = []
-#   gate_close = []
-
-#   for file in files:
-#     with open(file) as log_file:
-
-#       for line in log_file:
-#         test = line.find("[error]")
-#         if test != -1:
-#           print("*Error: ", line)
-          
-#         arr = line.split("[info]")
-#         log_entry = arr[0]
-
-#         try:
-#           my_json = json.loads(arr[1])    
-          
-#           suite_fails = my_json["test-suite-fail-count"]
-
-#           # if True:
-#           if suite_fails  > 0:
-#           # if suite_fails  > 0 and suite_fails != previous_fail_count:
-#             previous_fail_count = suite_fails
-#             cpu_temp = my_json["diagnostics"]["cm_cpu_temp"]
-#             print(log_entry, "CPU TEMP: ", cpu_temp , "Fail count: ", suite_fails)
-
-#             for entry in my_json["test_suites"]:
-#               for case in entry["test_cases"]:
-#                 slot = case["slot-id"]
-          
-#           if suite_fails > max_suite_fail_count:
-#             max_suite_fail_count = suite_fails
-            
-#         except Exception as ex:
-      
-#           print(f"error reading line: Exception: {ex}")
-#       # output.close()                      
-
-#   if relay.find_gate_close_max_read_back in funcs:
-#     x = []
-#     y = []
-#     for key in temp_map:
-#       x.append(key)
-#       y.append(sum(temp_map[key])/len(temp_map[key]))
-#       # y.append(max(temp_map[key]))
-#       # sum = 0
-#       # entries = 0
-#       # for vals in temp_map[key]:
-#         # sum += vals
-
-#     # plt.plot(x,y)
-#     plt.scatter(x,y)
-#     plt.xlabel("Temp C")
-#     plt.ylabel("Average gate closer in miliseconds")
-#     # plt.ylim([5,12])
-#     plt.show()
-
-#   print("Global Max Gate Closer time: ", max_gate_closer)
-#   print("Total Test-Suite fails: ", max_suite_fail_count)
-    
 
