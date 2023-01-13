@@ -1,4 +1,4 @@
-cpu_temp,slot,channel,status,ms
+cpu_temp,slot,channel,state,ms
 27.0,3,0,close,22
 27.0,3,0,open,15
 27.0,3,1,close,12

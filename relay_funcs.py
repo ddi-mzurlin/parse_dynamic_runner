@@ -1,6 +1,9 @@
 import json
 import sys
 import os
+import os.path
+
+
 
 OFFSET_CYCLE_READ = 2 # offset zero base index and refer to next cycle
 READS_TO_CONSIDER = 40 # Help speeds things up by only looking at this many reads
@@ -143,9 +146,19 @@ def shaun_csv(case, cpu_temp):
   #open file for read_backs
   #open and closes for each channel
   # with open("force_guided_relay4_din.csv") as out:
+  din_file_name = "din_open_close.csv"
+  rb_file_name = "read_back_open_close.csv"
+  header = "cpu_temp,slot,channel,state,ms\n"
+  if not os.path.isfile(din_file_name):
+    with open(din_file_name, 'w') as append_header:
+      append_header.write(header)
+
+  if not os.path.isfile(rb_file_name):
+    with open(rb_file_name,'w') as append_header:
+      append_header.write(header)
 
   ######################################################### DIN OPEN
-  with open("din_open_close.csv","a+") as din_file:
+  with open(din_file_name,"a+") as din_file:
     analytics = case["analytics"]
     max_gate_open_per_channel = 0
     slot_id = case["slot-id"]
@@ -195,7 +208,7 @@ def shaun_csv(case, cpu_temp):
 ########################################################## DIN OPEN END
 
   ######################################################### READBACK OPEN
-  with open("read_back_open_close.csv","a+") as rd_file:
+  with open(rb_file_name,"a+") as rd_file:
     
 
     analytics = case["analytics"]
